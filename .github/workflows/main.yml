@@ -5,7 +5,7 @@ on:
   - pull_request
 
 jobs:
-  build:
+  lint:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -25,5 +25,61 @@ jobs:
         run: |
           python -m ruff check .
           python -m mypy clicktail tests
+
+  test:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.13', '3.14']
+    services:
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.3.3.20
+        ports:
+          - 28123:8123
+        env:
+          CLICKHOUSE_DB: clicktail
+          CLICKHOUSE_USER: clicktail
+          CLICKHOUSE_PASSWORD: clicktail
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+        options: >-
+          --health-cmd "wget -qO- http://127.0.0.1:8123/ping || exit 1"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r test-requirements.txt
+      - name: Wait for ClickHouse
+        run: |
+          for _ in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:28123/ping >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "ClickHouse did not become ready in time" >&2
+          exit 1
+      - name: Initialize ClickHouse schema
+        run: |
+          curl --silent --show-error --fail \
+            --user clicktail:clicktail \
+            --data-binary @docker/clickhouse/initdb/01-schema.sql \
+            http://127.0.0.1:28123/
       - name: Test
-        run: python -m pytest -q
+        env:
+          CLICKTAIL_CLICKHOUSE_HOST: http://127.0.0.1:28123
+          CLICKTAIL_CLICKHOUSE_PORT: "28123"
+          CLICKTAIL_CLICKHOUSE_DATABASE: clicktail
+          CLICKTAIL_CLICKHOUSE_TABLE: logs
+          CLICKTAIL_CLICKHOUSE_USERNAME: clicktail
+          CLICKTAIL_CLICKHOUSE_PASSWORD: clicktail
+          CLICKTAIL_CLICKHOUSE_PAYLOAD_COLUMN: payload
+        run: make test

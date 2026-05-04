@@ -14,7 +14,7 @@ pip install clicktail
 make run
 ```
 
-This target loads `example-project/.env` and runs the script with those values.
+This target loads `example-project/.env.example` and runs the script with those values.
 
 Example `.env`:
 

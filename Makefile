@@ -11,7 +11,7 @@ setup:
 	$(PIP) install -r requirements.txt -r test-requirements.txt
 
 test:
-	set -a; . ./.env-tests; set +a; $(PYTEST) -q
+	set -a; . ./.env.tests; set +a; $(PYTEST) -q
 
 lint:
 	$(RUFF) check .
