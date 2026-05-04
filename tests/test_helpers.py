@@ -1,58 +1,51 @@
 # coding: utf-8
 from __future__ import print_function, unicode_literals
+
 import unittest
 
-from logtail import LogtailContext
+from clicktail import ClicktailContext
 
 
-class TestLogtailContext(unittest.TestCase):
-
+class TestClicktailContext(unittest.TestCase):
     def test_exists(self):
-        c = LogtailContext()
+        c = ClicktailContext()
         self.assertFalse(c.exists())
-        with c(user={'name': 'a'}):
+        with c(user={"name": "a"}):
             self.assertTrue(c.exists())
         self.assertFalse(c.exists())
 
     def test_only_accepts_keyword_argument_dicts(self):
-        c = LogtailContext()
+        c = ClicktailContext()
         # Named context passes
-        c(user={'name': 'a'})
+        c(user={"name": "a"})
         # Non-named contexts fail, even if they're dicts
-        for garbage in ['x', 1, [{'name': 'a'}], {'name': 'a'}]:
+        for garbage in ["x", 1, [{"name": "a"}], {"name": "a"}]:
             with self.assertRaises(ValueError):
                 c(garbage)
         # Named contexts fail if they are not dicts
-        for garbage in [{'user': 1}, {'user': []}, {'user': tuple()}]:
+        for garbage in [{"user": 1}, {"user": []}, {"user": tuple()}]:
             with self.assertRaises(ValueError):
                 c(**garbage)
 
     def test_does_not_suppress_exceptions(self):
-        c = LogtailContext()
+        c = ClicktailContext()
         with self.assertRaises(ValueError):
-            with c(user={'name': 'a'}):
-                raise ValueError('should be thrown')
+            with c(user={"name": "a"}):
+                raise ValueError("should be thrown")
 
     def test_nested_collapse(self):
-        c = LogtailContext()
+        c = ClicktailContext()
         self.assertEqual(c.collapse(), {})
 
-        with c(user={'name': 'a', 'count': 1}):
-            self.assertEqual(
-                c.collapse(),
-                {'user': {'name': 'a', 'count': 1}}
-            )
+        with c(user={"name": "a", "count": 1}):
+            self.assertEqual(c.collapse(), {"user": {"name": "a", "count": 1}})
 
-            with c(user={'name': 'b'}, other={'foo': 'bar'}):
+            with c(user={"name": "b"}, other={"foo": "bar"}):
                 self.assertEqual(
                     c.collapse(),
-                    {'user': {'name': 'b', 'count': 1},
-                     'other': {'foo': 'bar'}}
+                    {"user": {"name": "b", "count": 1}, "other": {"foo": "bar"}},
                 )
 
-            self.assertEqual(
-                c.collapse(),
-                {'user': {'name': 'a', 'count': 1}}
-            )
+            self.assertEqual(c.collapse(), {"user": {"name": "a", "count": 1}})
 
         self.assertEqual(c.collapse(), {})

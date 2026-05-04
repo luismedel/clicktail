@@ -1,0 +1,13 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.3.3.20
+    ports:
+      - "28123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: clicktail
+      CLICKHOUSE_USER: clicktail
+      CLICKHOUSE_PASSWORD: clicktail
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes:
+      - ./docker/clickhouse/initdb:/docker-entrypoint-initdb.d

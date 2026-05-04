@@ -1,21 +1,19 @@
 # coding: utf-8
 from __future__ import print_function, unicode_literals
 
+from typing import Any
 
-class LogtailContext(object):
+
+class ClicktailContext:
     def __init__(self):
         self.extras = []
 
     def context(self, *args, **kwargs):
         if args:
-            raise ValueError(
-                'All contexts must be passed by name as keyword arguments'
-            )
+            raise ValueError("All contexts must be passed by name as keyword arguments")
         for key, val in kwargs.items():
             if not isinstance(val, dict):
-                raise ValueError(
-                    'All contexts must be dictionaries: %s' % key
-                )
+                raise ValueError("All contexts must be dictionaries: %s" % key)
         self.extras.append(kwargs)
         return self
 
@@ -35,11 +33,13 @@ class LogtailContext(object):
         return bool(self.extras)
 
     def collapse(self):
-        x = {}
+        x: dict[str, Any] = {}
         for contexts in self.extras:
             for name, data in contexts.items():
                 x.setdefault(name, {}).update(data)
         return x
 
 
-DEFAULT_CONTEXT = LogtailContext()
+LogtailContext = ClicktailContext
+
+DEFAULT_CONTEXT = ClicktailContext()

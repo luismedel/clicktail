@@ -1,22 +1,30 @@
 # coding: utf-8
 from __future__ import print_function, unicode_literals
-import mock
-import sys
-import time
-import threading
-import unittest
 
+import queue
+import sys
+import threading
+import time
+import unittest
 from unittest.mock import patch
 
-from logtail.compat import queue
-from logtail.flusher import RETRY_SCHEDULE
-from logtail.flusher import FlushWorker
-from logtail.uploader import Uploader
+import mock
+
+from clicktail.flush_worker import RETRY_SCHEDULE, FlushWorker
+from clicktail.uploader import Uploader
+from tests.env import (
+    CLICKTAIL_CLICKHOUSE_DATABASE,
+    CLICKTAIL_CLICKHOUSE_HOST,
+    CLICKTAIL_CLICKHOUSE_PAYLOAD_COLUMN,
+    CLICKTAIL_CLICKHOUSE_TABLE,
+)
 
 
 class TestFlushWorker(unittest.TestCase):
-    host = 'https://in.logtail.com'
-    source_token = 'dummy_source_token'
+    host = CLICKTAIL_CLICKHOUSE_HOST
+    database = CLICKTAIL_CLICKHOUSE_DATABASE
+    table = CLICKTAIL_CLICKHOUSE_TABLE
+    payload_column = CLICKTAIL_CLICKHOUSE_PAYLOAD_COLUMN
     buffer_capacity = 5
     flush_interval = 2
     check_interval = 0.01
@@ -24,8 +32,23 @@ class TestFlushWorker(unittest.TestCase):
 
     def _setup_worker(self, uploader=None):
         pipe = queue.Queue(maxsize=self.buffer_capacity)
-        uploader = uploader or Uploader(self.source_token, self.host, self.timeout)
-        fw = FlushWorker(uploader, pipe, self.buffer_capacity, self.flush_interval, self.check_interval)
+        uploader = uploader or Uploader(
+            self.host,
+            self.database,
+            self.table,
+            None,
+            None,
+            None,
+            self.payload_column,
+            self.timeout,
+        )
+        fw = FlushWorker(
+            uploader,
+            pipe,
+            self.buffer_capacity,
+            self.flush_interval,
+            self.check_interval,
+        )
         return pipe, uploader, fw
 
     def test_is_thread(self):
@@ -54,7 +77,7 @@ class TestFlushWorker(unittest.TestCase):
 
         self.assertEqual(self.calls, 1)
 
-    @patch('logtail.flusher._calculate_time_remaining')
+    @patch("clicktail.flush_worker._calculate_time_remaining")
     def test_flushes_after_interval(self, calculate_time_remaining):
         self.buffer_capacity = 10
         num_items = 2
@@ -62,12 +85,14 @@ class TestFlushWorker(unittest.TestCase):
         self.assertLess(num_items, self.buffer_capacity)
 
         self.upload_calls = 0
+
         def uploader(frame):
             self.upload_calls += 1
             self.assertEqual(frame, first_frame[:num_items])
             return mock.MagicMock(status_code=202)
 
         self.timeout_calls = 0
+
         def timeout(last_flush, interval):
             self.timeout_calls += 1
             # Until the last item has been retrieved from the pipe, the timeout
@@ -76,6 +101,7 @@ class TestFlushWorker(unittest.TestCase):
             if self.timeout_calls < num_items:
                 return 1000000
             return 0
+
         calculate_time_remaining.side_effect = timeout
 
         pipe, _, fw = self._setup_worker(uploader)
@@ -86,10 +112,12 @@ class TestFlushWorker(unittest.TestCase):
         self.assertEqual(self.upload_calls, 1)
         self.assertEqual(self.timeout_calls, 2)
 
-    @patch('logtail.flusher._calculate_time_remaining')
-    @patch('logtail.flusher._initial_time_remaining')
-    def test_does_nothing_without_any_items(self, initial_time_remaining, calculate_time_remaining):
-        calculate_time_remaining.side_effect = lambda a,b: 0.0
+    @patch("clicktail.flush_worker._calculate_time_remaining")
+    @patch("clicktail.flush_worker._initial_time_remaining")
+    def test_does_nothing_without_any_items(
+        self, initial_time_remaining, calculate_time_remaining
+    ):
+        calculate_time_remaining.side_effect = lambda a, b: 0.0
         initial_time_remaining.side_effect = lambda a: 0.0001
 
         uploader = mock.MagicMock(side_effect=mock.MagicMock(status_code=202))
@@ -99,20 +127,23 @@ class TestFlushWorker(unittest.TestCase):
         fw.step()
         self.assertFalse(uploader.called)
 
-    @patch('logtail.flusher.time.sleep')
+    @patch("clicktail.flush_worker.time.sleep")
     def test_retries_according_to_schedule(self, mock_sleep):
         first_frame = list(range(self.buffer_capacity))
 
         self.uploader_calls = 0
+
         def uploader(frame):
             self.uploader_calls += 1
             self.assertEqual(frame, first_frame)
             return mock.MagicMock(status_code=500)
 
         self.sleep_calls = 0
+
         def sleep(time):
             self.assertEqual(time, RETRY_SCHEDULE[self.sleep_calls])
             self.sleep_calls += 1
+
         mock_sleep.side_effect = sleep
 
         pipe, _, fw = self._setup_worker(uploader)
@@ -131,6 +162,7 @@ class TestFlushWorker(unittest.TestCase):
         self.assertLess(num_items, self.buffer_capacity)
 
         self.upload_calls = 0
+
         def uploader(frame):
             self.upload_calls += 1
             self.assertEqual(frame, first_frame[:num_items])
@@ -147,7 +179,10 @@ class TestFlushWorker(unittest.TestCase):
         self.assertFalse(fw.should_run)
 
     # test relies on overriding excepthook which is available from 3.8+
-    @unittest.skipIf(sys.version_info < (3, 8), "Test skipped because overriding excepthook is only available on Python 3.8+")
+    @unittest.skipIf(
+        sys.version_info < (3, 8),
+        "Test skipped because overriding excepthook is only available on Python 3.8+",
+    )
     def test_shutdown_dont_raise_exception_in_thread(self):
         original_excepthook = threading.excepthook
         threading.excepthook = mock.Mock()
