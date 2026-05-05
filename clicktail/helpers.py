@@ -29,7 +29,7 @@ class ClicktailContext:
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
-    ) -> "ClicktailContext" | bool:
+    ) -> "ClicktailContext | bool":
         if exc_type is not None:
             return False
         self.extras.pop()
