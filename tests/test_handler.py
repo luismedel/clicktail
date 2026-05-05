@@ -10,6 +10,7 @@ from unittest.mock import patch
 import mock
 
 from clicktail import ClickHouseHandler, context
+from clicktail.flush_worker import FlushWorker
 from tests.env import (
     CLICKTAIL_CLICKHOUSE_DATABASE,
     CLICKTAIL_CLICKHOUSE_HOST,
@@ -23,7 +24,7 @@ class TestClickHouseHandler(unittest.TestCase):
     table = CLICKTAIL_CLICKHOUSE_TABLE
 
     @patch("clicktail.handler.FlushWorker")
-    def test_handler_creates_uploader_from_args(self, MockWorker):
+    def test_handler_creates_uploader_from_args(self, mock_worker: FlushWorker) -> None:
         handler = ClickHouseHandler(
             host=self.host, database=self.database, table=self.table
         )
@@ -37,7 +38,7 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertEqual(handler.uploader.table, self.table)
 
     @patch("clicktail.handler.FlushWorker")
-    def test_handler_passes_timeout_to_uploader(self, MockWorker):
+    def test_handler_passes_timeout_to_uploader(self, mock_worker: FlushWorker) -> None:
         # Test default timeout
         handler = ClickHouseHandler(
             host=self.host, database=self.database, table=self.table
@@ -51,7 +52,7 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertEqual(handler.uploader.timeout, 10)
 
     @patch("clicktail.handler.FlushWorker")
-    def test_handler_creates_pipe_from_args(self, MockWorker):
+    def test_handler_creates_pipe_from_args(self, mock_worker: FlushWorker) -> None:
         buffer_capacity = 9
         flush_interval = 1
         handler = ClickHouseHandler(
@@ -65,8 +66,8 @@ class TestClickHouseHandler(unittest.TestCase):
 
     @patch("clicktail.handler.FlushWorker")
     def test_handler_creates_and_starts_worker_from_args_after_first_log(
-        self, MockWorker
-    ):
+        self, mock_worker: FlushWorker
+    ) -> None:
         buffer_capacity = 9
         flush_interval = 9
         check_interval = 4
@@ -79,14 +80,14 @@ class TestClickHouseHandler(unittest.TestCase):
             check_interval=check_interval,
         )
 
-        self.assertFalse(MockWorker.called)
+        self.assertFalse(mock_worker.called)
 
         logger = logging.getLogger(__name__)
         logger.handlers = []
         logger.addHandler(handler)
         logger.critical("hello")
 
-        MockWorker.assert_called_with(
+        mock_worker.assert_called_with(
             handler.uploader,
             handler.pipe,
             buffer_capacity,
@@ -96,7 +97,7 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertEqual(handler.flush_thread.start.call_count, 1)
 
     @patch("clicktail.handler.FlushWorker")
-    def test_emit_starts_thread_if_not_alive(self, MockWorker):
+    def test_emit_starts_thread_if_not_alive(self, mock_worker: FlushWorker) -> None:
         handler = ClickHouseHandler(
             host=self.host, database=self.database, table=self.table
         )
@@ -107,14 +108,14 @@ class TestClickHouseHandler(unittest.TestCase):
         logger.critical("hello")
 
         self.assertEqual(handler.flush_thread.start.call_count, 1)
-        handler.flush_thread.is_alive = mock.Mock(return_value=False)
+        handler.flush_thread.is_alive = mock.Mock(return_value=False)  # type: ignore
 
         logger.critical("hello")
 
         self.assertEqual(handler.flush_thread.start.call_count, 2)
 
     @patch("clicktail.handler.FlushWorker")
-    def test_emit_drops_records_if_configured(self, MockWorker):
+    def test_emit_drops_records_if_configured(self, mock_worker: FlushWorker) -> None:
         buffer_capacity = 1
         handler = ClickHouseHandler(
             host=self.host,
@@ -136,7 +137,9 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertEqual(handler.dropcount, 1)
 
     @patch("clicktail.handler.FlushWorker")
-    def test_emit_does_not_drop_records_if_configured(self, MockWorker):
+    def test_emit_does_not_drop_records_if_configured(
+        self, mock_worker: FlushWorker
+    ) -> None:
         buffer_capacity = 1
         handler = ClickHouseHandler(
             host=self.host,
@@ -169,7 +172,7 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertEqual(handler.dropcount, 0)
 
     @patch("clicktail.handler.FlushWorker")
-    def test_error_suppression(self, MockWorker):
+    def test_error_suppression(self, mock_worker: FlushWorker) -> None:
         buffer_capacity = 1
         handler = ClickHouseHandler(
             host=self.host,
@@ -192,7 +195,7 @@ class TestClickHouseHandler(unittest.TestCase):
         logger.critical("hello")
 
     @patch("clicktail.handler.FlushWorker")
-    def test_can_send_unserializable_extra_data(self, MockWorker):
+    def test_can_send_unserializable_extra_data(self, mock_worker: FlushWorker) -> None:
         buffer_capacity = 1
         handler = ClickHouseHandler(
             host=self.host,
@@ -217,7 +220,7 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertTrue(handler.pipe.empty())
 
     @patch("clicktail.handler.FlushWorker")
-    def test_can_send_unserializable_context(self, MockWorker):
+    def test_can_send_unserializable_context(self, mock_worker: FlushWorker) -> None:
         buffer_capacity = 1
         handler = ClickHouseHandler(
             host=self.host,
@@ -243,7 +246,9 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertTrue(handler.pipe.empty())
 
     @patch("clicktail.handler.FlushWorker")
-    def test_can_send_circular_dependency_in_extra_data(self, MockWorker):
+    def test_can_send_circular_dependency_in_extra_data(
+        self, mock_worker: FlushWorker
+    ) -> None:
         buffer_capacity = 1
         handler = ClickHouseHandler(
             host=self.host,
@@ -269,7 +274,9 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertTrue(handler.pipe.empty())
 
     @patch("clicktail.handler.FlushWorker")
-    def test_can_have_multiple_instance_of_same_string_in_extra_data(self, MockWorker):
+    def test_can_have_multiple_instance_of_same_string_in_extra_data(
+        self, mock_worker: FlushWorker
+    ) -> None:
         buffer_capacity = 1
         handler = ClickHouseHandler(
             host=self.host,
@@ -293,7 +300,9 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertTrue(handler.pipe.empty())
 
     @patch("clicktail.handler.FlushWorker")
-    def test_can_have_multiple_instance_of_same_array_in_extra_data(self, MockWorker):
+    def test_can_have_multiple_instance_of_same_array_in_extra_data(
+        self, mock_worker: FlushWorker
+    ) -> None:
         buffer_capacity = 1
         handler = ClickHouseHandler(
             host=self.host,
@@ -317,7 +326,9 @@ class TestClickHouseHandler(unittest.TestCase):
         self.assertTrue(handler.pipe.empty())
 
     @patch("clicktail.handler.FlushWorker")
-    def test_can_send_circular_dependency_in_context(self, MockWorker):
+    def test_can_send_circular_dependency_in_context(
+        self, mock_worker: FlushWorker
+    ) -> None:
         buffer_capacity = 1
         handler = ClickHouseHandler(
             host=self.host,

@@ -3,6 +3,7 @@ from __future__ import print_function, unicode_literals
 
 import json
 import unittest
+from unittest import mock
 from unittest.mock import patch
 
 from clicktail.uploader import Uploader
@@ -36,7 +37,7 @@ class TestUploader(unittest.TestCase):
     timeout = 30
 
     @patch("clicktail.uploader.requests.Session.post")
-    def test_call(self, post):
+    def test_call(self, post: mock.MagicMock) -> None:
         def mock_post(
             endpoint, data=None, headers=None, params=None, auth=None, timeout=None
         ):

@@ -14,12 +14,12 @@ test:
 	set -a; . ./.env.tests; set +a; $(PYTEST) -q
 
 lint:
-	$(RUFF) check .
+	$(RUFF) check clicktail tests
 	$(MYPY) clicktail tests
 
 format:
-	$(RUFF) format .
-	$(RUFF) check . --fix
+	$(RUFF) format clicktail tests
+	$(RUFF) check clicktail tests --fix
 
 format-check:
 	$(RUFF) format . --check

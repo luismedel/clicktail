@@ -6,12 +6,13 @@ import threading
 import time
 from typing import Any
 
-from .uploader import Uploader
-
-RETRY_SCHEDULE = (1, 10, 60)  # seconds
+from .uploader import Uploader, UploadFailedResponse
 
 
 class FlushWorker(threading.Thread):
+    RETRY_SCHEDULE = (1.0, 10.0, 60.0)  # seconds
+    FLUSH_WAIT = 2.0  # seconds
+
     def __init__(
         self,
         upload: Uploader,
@@ -20,7 +21,7 @@ class FlushWorker(threading.Thread):
         flush_interval: float,
         check_interval: float,
     ) -> None:
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, daemon=True)
         self.parent_thread = threading.current_thread()
         self.upload = upload
         self.pipe = pipe
@@ -31,14 +32,14 @@ class FlushWorker(threading.Thread):
         self._flushing = False
         self._clean = True
 
-    def run(self):
+    def run(self) -> None:
         while self.should_run:
             self.step()
 
     def step(self) -> None:
         last_flush = time.time()
         time_remaining = _initial_time_remaining(self.flush_interval)
-        frame: list[Any] = []
+        frames: list[dict] = []
         self._clean = True
 
         # If the parent thread has exited but there are still outstanding
@@ -49,7 +50,7 @@ class FlushWorker(threading.Thread):
         # Takes up to `buffer_capacity` events out of the queue and groups them
         # for sending; may send fewer than `buffer_capacity` events if
         # `flush_interval` seconds have passed without sending any events.
-        while len(frame) < self.buffer_capacity and time_remaining > 0:
+        while len(frames) < self.buffer_capacity and time_remaining > 0:
             try:
                 # Blocks for up to `check_interval` seconds for each item to prevent
                 # spinning and burning CPU unnecessarily. Could block for the
@@ -58,7 +59,7 @@ class FlushWorker(threading.Thread):
                 # would be waited before this child worker thread exits.
                 entry = self.pipe.get(block=(not shutdown), timeout=self.check_interval)
                 self._clean = False
-                frame.append(entry)
+                frames.append(entry)
                 self.pipe.task_done()
             except queue.Empty:
                 if shutdown or self._flushing:
@@ -70,22 +71,19 @@ class FlushWorker(threading.Thread):
         # count) and sends them to the ClickHouse HTTP endpoint all at once. If the
         # request fails in a way that can be retried, it is retried with an
         # exponential backoff in between attempts.
-        if frame:
+        if frames:
             response: Any = None
-            for delay in RETRY_SCHEDULE + (None,):
-                response = self.upload(frame)
+            for delay in self.RETRY_SCHEDULE + (None,):
+                response = self.upload(frames)
                 if not _should_retry(response.status_code):
                     break
                 if delay is not None:
                     time.sleep(delay)
 
-            if (
-                response.status_code == 500
-                and getattr(response, "exception") is not None
-            ):
+            if isinstance(response, UploadFailedResponse):
                 print(
                     "Failed to send logs to ClickHouse after {} retries: {}".format(
-                        len(RETRY_SCHEDULE), response.exception
+                        len(self.RETRY_SCHEDULE), response.exception
                     )
                 )
 
@@ -93,10 +91,13 @@ class FlushWorker(threading.Thread):
         if shutdown and self.pipe.empty():
             self.should_run = False
 
-    def flush(self):
+    def flush(self) -> None:
+        t = time.monotonic()
         self._flushing = True
-        while not self._clean or not self.pipe.empty():
-            time.sleep(self.check_interval)
+        while (not self._clean or not self.pipe.empty()):
+            time.sleep(0.1)
+            if time.monotonic() - t > self.FLUSH_WAIT:
+                break
         self._flushing = False
 
 

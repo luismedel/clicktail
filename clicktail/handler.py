@@ -4,6 +4,7 @@ from __future__ import print_function, unicode_literals
 import json
 import logging
 import queue
+from typing import Any
 
 from .flush_worker import FlushWorker
 from .frame import create_frame
@@ -19,17 +20,21 @@ DEFAULT_DROP_EXTRA_EVENTS = True
 DEFAULT_INCLUDE_EXTRA_ATTRIBUTES = True
 DEFAULT_TIMEOUT = 30.0
 
+DEFAULT_DATABASE = "default"
+DEFAULT_TABLE = "logs"
+DEFAULT_PAYLOAD_COLUMN = "payload"
+
 
 class ClickHouseHandler(logging.Handler):
     def __init__(
         self,
         host=DEFAULT_HOST,
-        database="default",
-        table="logs",
-        username=None,
-        password=None,
-        clickhouse_settings=None,
-        payload_column="payload",
+        database=DEFAULT_DATABASE,
+        table=DEFAULT_TABLE,
+        username: str | None = None,
+        password: str | None = None,
+        clickhouse_settings: dict[str, Any] | None = None,
+        payload_column=DEFAULT_PAYLOAD_COLUMN,
         buffer_capacity=DEFAULT_BUFFER_CAPACITY,
         flush_interval=DEFAULT_FLUSH_INTERVAL,
         check_interval=DEFAULT_CHECK_INTERVAL,
@@ -40,7 +45,7 @@ class ClickHouseHandler(logging.Handler):
         timeout=DEFAULT_TIMEOUT,
         level=logging.NOTSET,
     ):
-        super(ClickHouseHandler, self).__init__(level=level)
+        super().__init__(level=level)
         if host.startswith("https://") or host.startswith("http://"):
             self.host = host
         else:
@@ -71,9 +76,9 @@ class ClickHouseHandler(logging.Handler):
         self.raise_exceptions = raise_exceptions
         self.dropcount = 0
         # Do not initialize the flush thread yet because it causes issues on Render.
-        self.flush_thread = None
+        self.flush_thread: FlushWorker | None = None
 
-    def ensure_flush_thread_alive(self):
+    def ensure_flush_thread_alive(self) -> None:
         if self.flush_thread and self.flush_thread.is_alive():
             return
 
@@ -86,7 +91,7 @@ class ClickHouseHandler(logging.Handler):
         )
         self.flush_thread.start()
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             self.ensure_flush_thread_alive()
 
@@ -108,7 +113,7 @@ class ClickHouseHandler(logging.Handler):
             if self.raise_exceptions:
                 raise e
 
-    def flush(self):
+    def flush(self) -> None:
         if self.flush_thread and self.flush_thread.is_alive():
             self.flush_thread.flush()
 

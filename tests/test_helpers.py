@@ -7,14 +7,14 @@ from clicktail import ClicktailContext
 
 
 class TestClicktailContext(unittest.TestCase):
-    def test_exists(self):
+    def test_exists(self) -> None:
         c = ClicktailContext()
         self.assertFalse(c.exists())
         with c(user={"name": "a"}):
             self.assertTrue(c.exists())
         self.assertFalse(c.exists())
 
-    def test_only_accepts_keyword_argument_dicts(self):
+    def test_only_accepts_keyword_argument_dicts(self) -> None:
         c = ClicktailContext()
         # Named context passes
         c(user={"name": "a"})
@@ -27,13 +27,13 @@ class TestClicktailContext(unittest.TestCase):
             with self.assertRaises(ValueError):
                 c(**garbage)
 
-    def test_does_not_suppress_exceptions(self):
+    def test_does_not_suppress_exceptions(self) -> None:
         c = ClicktailContext()
         with self.assertRaises(ValueError):
             with c(user={"name": "a"}):
                 raise ValueError("should be thrown")
 
-    def test_nested_collapse(self):
+    def test_nested_collapse(self) -> None:
         c = ClicktailContext()
         self.assertEqual(c.collapse(), {})
 

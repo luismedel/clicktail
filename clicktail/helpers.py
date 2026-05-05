@@ -1,14 +1,15 @@
 # coding: utf-8
 from __future__ import print_function, unicode_literals
 
-from typing import Any
+from types import TracebackType
+from typing import Any, Generator
 
 
 class ClicktailContext:
-    def __init__(self):
-        self.extras = []
+    def __init__(self) -> None:
+        self.extras: list[dict] = []
 
-    def context(self, *args, **kwargs):
+    def context(self, *args: Any, **kwargs: Any) -> "ClicktailContext":
         if args:
             raise ValueError("All contexts must be passed by name as keyword arguments")
         for key, val in kwargs.items():
@@ -17,22 +18,27 @@ class ClicktailContext:
         self.extras.append(kwargs)
         return self
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any) -> "ClicktailContext":
         return self.context(*args, **kwargs)
 
-    def __enter__(self):
-        return self
+    def __enter__(self) -> Generator["ClicktailContext", None, None]:
+        yield self
 
-    def __exit__(self, type_, value, traceback):
-        if type_ is not None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> "ClicktailContext" | bool:
+        if exc_type is not None:
             return False
         self.extras.pop()
         return self
 
-    def exists(self):
+    def exists(self) -> bool:
         return bool(self.extras)
 
-    def collapse(self):
+    def collapse(self) -> dict[str, Any]:
         x: dict[str, Any] = {}
         for contexts in self.extras:
             for name, data in contexts.items():

@@ -20,7 +20,7 @@ class ClicktailFormatter(logging.Formatter):
         self.json_default = json_default
         self.json_encoder = json_encoder
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         # Because the formatter does not have an underlying format string for
         # which `extra` may be used to substitute arguments (see
         # https://docs.python.org/2/library/logging.html#logging.debug ), we

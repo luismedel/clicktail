@@ -4,22 +4,24 @@ from __future__ import print_function, unicode_literals
 import json
 import logging
 import unittest
+from typing import Any
 
 import clicktail
+from clicktail.formatter import ClicktailFormatter
 from clicktail.helpers import ClicktailContext
 
 
 class TestClicktailFormatter(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.context = ClicktailContext()
         self.customer = {"id": "1"}
         self.order = {"id": "1234", "amount": 200, "item": "#19849"}
 
-    def _check_and_get_line(self, loglines):
+    def _check_and_get_line(self, loglines: list[str]) -> str:
         self.assertEqual(len(loglines), 1)
         return loglines[0]
 
-    def test_format_emits_single_line(self):
+    def test_format_emits_single_line(self) -> None:
         formatter = clicktail.ClicktailFormatter(context=self.context)
         logger, loglines = logger_and_lines(formatter)
         self.assertFalse(loglines)
@@ -28,7 +30,7 @@ class TestClicktailFormatter(unittest.TestCase):
         line = self._check_and_get_line(loglines)
         self.assertEqual(len(line.split("\n")), 1)
 
-    def test_format_creates_json_serialized_frame_with_context(self):
+    def test_format_creates_json_serialized_frame_with_context(self) -> None:
         formatter = clicktail.ClicktailFormatter(context=self.context)
         logger, loglines = logger_and_lines(formatter)
         self.assertFalse(loglines)
@@ -44,7 +46,7 @@ class TestClicktailFormatter(unittest.TestCase):
         self.assertEqual(frame["order"], self.order)
         self.assertEqual(frame["context"]["customer"], self.customer)
 
-    def test_format_collapses_context(self):
+    def test_format_collapses_context(self) -> None:
         formatter = clicktail.ClicktailFormatter(context=self.context)
         logger, loglines = logger_and_lines(formatter)
         self.assertFalse(loglines)
@@ -61,7 +63,7 @@ class TestClicktailFormatter(unittest.TestCase):
             frame["context"]["customer"], {"id": self.customer["id"], "trusted": True}
         )
 
-    def test_format_with_custom_default_json_serializer(self):
+    def test_format_with_custom_default_json_serializer(self) -> None:
         def suppress_encoding_errors(obj):
             return "Could not encode type=%s" % type(obj).__name__
 
@@ -87,7 +89,7 @@ class TestClicktailFormatter(unittest.TestCase):
             frame["context"]["data"], {"not_encodable": "Could not encode type=Dummy"}
         )
 
-    def test_format_with_custom_default_json_encoder(self):
+    def test_format_with_custom_default_json_encoder(self) -> None:
         default_formatter = clicktail.ClicktailFormatter(context=self.context)
         default_logger, _ = logger_and_lines(default_formatter, "default")
 
@@ -120,25 +122,27 @@ class Dummy:
 class DummyCapableEncoder(json.JSONEncoder):
     """A JSONEncoder that can encode instances of the Dummy class."""
 
-    def default(self, obj):
+    def default(self, obj: Any) -> str:
         if isinstance(obj, Dummy):
             return "<Dummy instance>"
-        return super(DummyCapableEncoder, self).default(obj)
+        return super().default(obj)
 
 
 class ListHandler(logging.Handler):
     """Accumulates all log lines in a list for testing purposes."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super(ListHandler, self).__init__(*args, **kwargs)
         self.lines = []
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         logline = self.format(record)
         self.lines.append(logline)
 
 
-def logger_and_lines(formatter, name=__name__):
+def logger_and_lines(
+    formatter: ClicktailFormatter, name=__name__
+) -> tuple[logging.Logger, list[str]]:
     """Helper for more easily writing formatter tests."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)

@@ -1,14 +1,21 @@
 # coding: utf-8
 from __future__ import print_function, unicode_literals
 
+import logging
 from datetime import datetime, timezone
 from os import path
 from typing import Any
 
 import __main__
+from clicktail.helpers import ClicktailContext
 
 
-def create_frame(record, message, context, include_extra_attributes=False):
+def create_frame(
+    record: logging.LogRecord,
+    message: str,
+    context: ClicktailContext,
+    include_extra_attributes: bool = False,
+) -> dict[str, Any]:
     r = record.__dict__
     # Django sends a request object in the record, which is not JSON serializable
     if "request" in r and not isinstance(
@@ -50,8 +57,10 @@ def create_frame(record, message, context, include_extra_attributes=False):
     return _remove_circular_dependencies(frame)
 
 
-def _parse_custom_events(record, include_extra_attributes):
-    default_keys = {
+def _parse_custom_events(
+    record: logging.LogRecord, include_extra_attributes: bool
+) -> dict[str, Any]:
+    DEFAULT_KEYS = {
         "args",
         "asctime",
         "created",
@@ -75,7 +84,7 @@ def _parse_custom_events(record, include_extra_attributes):
     }
     events = {}
     for key, val in record.__dict__.items():
-        if key in default_keys:
+        if key in DEFAULT_KEYS:
             continue
         if not include_extra_attributes and not isinstance(val, dict):
             continue
@@ -83,7 +92,7 @@ def _parse_custom_events(record, include_extra_attributes):
     return events
 
 
-def _remove_circular_dependencies(obj, memo=None):
+def _remove_circular_dependencies(obj: Any, memo: set | None = None) -> Any:
     if memo is None:
         memo = set()
 
@@ -112,14 +121,14 @@ def _remove_circular_dependencies(obj, memo=None):
         return obj
 
 
-def _levelname(level):
+def _levelname(level: str) -> str:
     return level.lower()
 
 
-def _relative_to_main_module_if_possible(pathname):
+def _relative_to_main_module_if_possible(pathname: str) -> str:
     has_main_module = hasattr(__main__, "__file__")
     return _relative_to_main_module(pathname) if has_main_module else pathname
 
 
-def _relative_to_main_module(pathname):
+def _relative_to_main_module(pathname: str) -> str:
     return path.relpath(pathname, path.dirname(__main__.__file__))

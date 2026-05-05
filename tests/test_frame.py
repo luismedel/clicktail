@@ -10,7 +10,7 @@ from clicktail.helpers import ClicktailContext
 
 
 class TestClicktailLogEntry(unittest.TestCase):
-    def test_create_frame_happy_path(self):
+    def test_create_frame_happy_path(self) -> None:
         log_record = logging.LogRecord(
             "logtail-test", 20, "/some/path", 10, "Some log message", [], None
         )
@@ -29,7 +29,7 @@ class TestClicktailLogEntry(unittest.TestCase):
         date_sent = datetime.datetime.fromisoformat(frame["dt"])
         self.assertEqual(date_ref, date_sent)
 
-    def test_create_frame_with_extra(self):
+    def test_create_frame_with_extra(self) -> None:
         log_record = logging.LogRecord(
             "logtail-test", 20, "/some/path", 10, "Some log message", [], None
         )
