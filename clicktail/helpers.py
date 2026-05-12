@@ -7,9 +7,9 @@ from typing import Any, Generator
 
 class ClicktailContext:
     def __init__(self) -> None:
-        self.extras: list[dict] = []
+        self.extras: list[dict[str, dict]] = []
 
-    def context(self, *args: Any, **kwargs: Any) -> "ClicktailContext":
+    def context(self, *args: Any, **kwargs: dict) -> "ClicktailContext":
         if args:
             raise ValueError("All contexts must be passed by name as keyword arguments")
         for key, val in kwargs.items():

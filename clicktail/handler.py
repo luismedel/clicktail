@@ -116,6 +116,3 @@ class ClickHouseHandler(logging.Handler):
     def flush(self) -> None:
         if self.flush_thread and self.flush_thread.is_alive():
             self.flush_thread.flush()
-
-
-LogtailHandler = ClickHouseHandler

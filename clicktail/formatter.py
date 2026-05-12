@@ -29,6 +29,3 @@ class ClicktailFormatter(logging.Formatter):
             record, record.getMessage(), self.context, include_extra_attributes=True
         )
         return json.dumps(frame, default=self.json_default, cls=self.json_encoder)
-
-
-LogtailFormatter = ClicktailFormatter

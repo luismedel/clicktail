@@ -94,7 +94,7 @@ class FlushWorker(threading.Thread):
     def flush(self) -> None:
         t = time.monotonic()
         self._flushing = True
-        while (not self._clean or not self.pipe.empty()):
+        while not self._clean or not self.pipe.empty():
             time.sleep(0.1)
             if time.monotonic() - t > self.FLUSH_WAIT:
                 break
